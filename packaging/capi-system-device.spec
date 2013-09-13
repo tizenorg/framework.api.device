@@ -42,6 +42,9 @@ make %{?jobs:-j%jobs}
 rm -rf %{buildroot}
 %make_install
 
+mkdir -p %{buildroot}%{_datadir}/license
+cp LICENSE.APLv2 %{buildroot}%{_datadir}/license/%{name}
+
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
@@ -50,6 +53,7 @@ rm -rf %{buildroot}
 %files
 %manifest capi-system-device.manifest
 %{_libdir}/libcapi-system-device.so.*
+%{_datadir}/license/%{name}
 
 %files devel
 %{_includedir}/system/device.h
