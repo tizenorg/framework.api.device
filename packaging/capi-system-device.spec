@@ -7,14 +7,13 @@ License:    Apache License, Version 2.0
 Source0:    %{name}-%{version}.tar.gz
 Source1:    capi-system-device.manifest
 BuildRequires:  cmake
-%if "%{_repository}" == "wearable"
 BuildRequires:  pkgconfig(deviced)
-%else
-BuildRequires:  pkgconfig(devman)
-%endif
 BuildRequires:  pkgconfig(capi-base-common)
+BuildRequires:  pkgconfig(capi-system-info)
 BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(vconf)
+BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(dbus-glib-1)
 
 Requires(post): /sbin/ldconfig  
 Requires(postun): /sbin/ldconfig
@@ -41,12 +40,7 @@ export CFLAGS+=" -DTIZEN_ENGINEER_MODE"
 %endif
 cp %{SOURCE1} .
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-%if "%{_repository}" == "wearable"
-%define ARCH wearable
-%else
-%define ARCH mobile
-%endif
-cmake . -DCMAKE_INSTALL_PREFIX=/usr -DFULLVER=%{version} -DMAJORVER=${MAJORVER} -DARCH=%{ARCH}
+cmake . -DCMAKE_INSTALL_PREFIX=/usr -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
 
 make %{?jobs:-j%jobs}
 
@@ -68,6 +62,7 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %{_datadir}/license/%{name}
 
 %files devel
-%{_includedir}/system/device.h
+%{_includedir}/device/*.h
+%{_includedir}/system/*.h
 %{_libdir}/pkgconfig/*.pc
 %{_libdir}/libcapi-system-device.so

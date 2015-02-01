@@ -10,21 +10,7 @@ SET(PREFIX ${CMAKE_INSTALL_PREFIX})
 SET(INC_DIR include)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
-IF("${ARCH}" STREQUAL "mobile")
-	OPTION(USE_MOBILE "Use Mobile" ON)
-ELSEIF("${ARCH}" STREQUAL "wearable")
-	OPTION(USE_WEARABLE "Use Wearable" ON)
-ENDIF()
-
-IF(USE_MOBILE)
-	SET(SRCS src/mobile)
-	SET(dependents devman)
-ELSEIF(USE_WEARABLE)
-	SET(SRCS src/wearable)
-	SET(dependents deviced)
-ENDIF()
-
-SET(dependents ${dependents} "dlog vconf capi-base-common")
+SET(dependents "deviced dlog vconf dbus-1 dbus-glib-1 capi-base-common capi-system-info")
 SET(pc_dependents "capi-base-common")
 
 INCLUDE(FindPkgConfig)
@@ -36,12 +22,16 @@ ENDFOREACH(flag)
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS} -fPIC -Wall -Werror")
 SET(CMAKE_C_FLAGS_DEBUG "-O0 -g")
 
+IF("${ARCH}" STREQUAL "arm")
+    ADD_DEFINITIONS("-DTARGET")
+ENDIF("${ARCH}" STREQUAL "arm")
+
 ADD_DEFINITIONS("-DPREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
-ADD_DEFINITIONS("-DTIZEN_DEBUG")
+ADD_DEFINITIONS("-DFEATURE_DEVICE_DLOG")
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -Wl,--rpath=/usr/lib")
 
-aux_source_directory(${SRCS} SOURCES)
+aux_source_directory(src SOURCES)
 ADD_LIBRARY(${fw_name} SHARED ${SOURCES})
 
 TARGET_LINK_LIBRARIES(${fw_name} ${${fw_name}_LDFLAGS})
@@ -54,12 +44,13 @@ SET_TARGET_PROPERTIES(${fw_name}
 )
 
 INSTALL(TARGETS ${fw_name} DESTINATION lib)
+INSTALL(FILES ${INC_DIR}/device.h ${INC_DIR}/device-error.h
+		DESTINATION include/system)
 INSTALL(
-        DIRECTORY ${INC_DIR}/ DESTINATION include/system
+        DIRECTORY ${INC_DIR}/ DESTINATION include/device
         FILES_MATCHING
-        PATTERN "*_private.h" EXCLUDE
-        PATTERN "*_log.h" EXCLUDE
         PATTERN "*_doc.h" EXCLUDE
+		PATTERN "device.h" EXCLUDE
         PATTERN "${INC_DIR}/*.h"
         )
 

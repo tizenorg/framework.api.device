@@ -21,7 +21,7 @@
 #define __TIZEN_SYSTEM_DEVICE_H__
 
 #include <stdbool.h>
-#include <tizen_error.h>
+#include "device-error.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,17 +32,6 @@ extern "C" {
  * @addtogroup CAPI_SYSTEM_DEVICE_MODULE
  * @{
  */
-
-/**
- * @brief Enumerations of error code for Device.
- */
-typedef enum
-{
-    DEVICE_ERROR_NONE              = TIZEN_ERROR_NONE,                  /**< Successful */
-    DEVICE_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER,   /**< Invalid parameter */
-    DEVICE_ERROR_OPERATION_FAILED  = TIZEN_ERROR_SYSTEM_CLASS | 0x12, /**< Operation failed */
-    DEVICE_ERROR_NOT_SUPPORTED     = TIZEN_ERROR_SYSTEM_CLASS | 0x13, /**< Not supported in this device */
-} device_error_e;
 
 /**
  * @brief Enumerations of the battery warning status
@@ -120,15 +109,6 @@ typedef void (*device_battery_cb)(int percent, void *user_data);
 typedef void (*device_battery_warn_cb)(device_battery_warn_e status, void *user_data);
 
 /**
- * @brief This callback take remained time for fully charged or discharged.
- *
- * @param[in] time         The battery remainig seconds to fully chagred or discharged
- * @param[in] user_data    The user data passed from the callback registration function
- *
- */
-typedef void (*device_battery_remaining_time_changed_cb)(int time, void* user_data);
-
-/**
  * @brief Called when an battery level changed
  *
  * @param[in] status       The remaining battery level (empty[0~1] critical[2~5] low[6~15] high[16~94] full[95~100])
@@ -196,25 +176,6 @@ int device_battery_warning_unset_cb(void);
 int device_battery_get_percent(int *percent);
 
 /**
- * @brief Gets the battery detail charge as a per ten thousand.
- * @details It return integer value from 0 to 10000 that indicates remaining battery charge as a per ten thousand of the maximum level.
- * @remarks this function return #DEVICE_ERROR_NOT_SUPPORTED when device can not be supported detail battery information.
- *
- * @param[out] detail   The remaining battery charge as a per ten thousand. (0 ~ 10000)
- *
- * @return 0 on success, otherwise a negative error value.
- * @retval #DEVICE_ERROR_NONE				Successful
- * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
- * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
- * @retval #DEVICE_ERROR_NOT_SUPPORTED      Not supported device
- *
- * @see device_battery_is_full()
- * @see device_battery_get_percent()
- * @see device_battery_set_cb()
- */
-int device_battery_get_detail(int *detail);
-
-/**
  * @brief Get charging state
  *
  * @param[out] charging The battery charging state.
@@ -266,53 +227,6 @@ int device_battery_unset_cb(void);
  * @see system_info_get_value_int(SYSTEM_INFO_KEY_BATTERY_CHARGE, ...)
  */
 int device_battery_is_full(bool *full);
-
-/**
- * @brief Retrive the remaining time for fully charged or discharged.
- *
- * @remark @a time will be retrieved the time to fully charged or discharged depending on @a type
- *
- * @param[in]  type   The type of battery remaining time
- * @param[out] time   battery remainig seconds to fully chagred or discharged
-
- * @return 0 on success, otherwise a negative error value.
- * @retval #DEVICE_ERROR_NONE				Successful
- * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
- * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
- *
- * @see device_battery_set_remaining_time_changed_cb()
- * @see device_battery_unset_remaining_time_changed_cb()
- */
-int device_battery_get_remaining_time(device_battery_remaining_time_type_e type, int* time);
-
-/**
- * @brief Set callback to be return battery remaining time to fully charged or discharged.
- *
- * @remark @a callback will be retrieved the time to fully charged or discharged depending on @a type
- *
- * @param[in] callback      The callback function to set
- * @param[in] user_data     The user data to be passed to the callback function
- *
- * @return 0 on success, otherwise a negative error value.
- * @retval #DEVICE_ERROR_NONE				Successful
- * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
- * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
- *
- */
-int device_battery_set_remaining_time_changed_cb(
-        device_battery_remaining_time_type_e type,
-        device_battery_remaining_time_changed_cb callback, void* user_data);
-
-/**
- * @brief Unset battery remaining time callback function.
- *
- * @param[in] type The type of battery remainig time
- *
- * @return 0 on success, otherwise a negative error value.
- * @retval #DEVICE_ERROR_NONE				Successful
- * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
- */
-int device_battery_unset_remaining_time_changed_cb(device_battery_remaining_time_type_e type);
 
 /**
  * @brief Gets the battery level status.
