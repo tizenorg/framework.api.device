@@ -21,7 +21,7 @@
 #define __TIZEN_SYSTEM_DEVICE_H__
 
 #include <stdbool.h>
-#include <tizen_error.h>
+#include "device-error.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,17 +34,6 @@ extern "C" {
  */
 
 /**
- * @brief Enumerations of error code for Device.
- */
-typedef enum
-{
-    DEVICE_ERROR_NONE              = TIZEN_ERROR_NONE,                  /**< Successful */
-    DEVICE_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER,   /**< Invalid parameter */
-    DEVICE_ERROR_OPERATION_FAILED  = TIZEN_ERROR_SYSTEM_CLASS | 0x12, /**< Operation failed */
-    DEVICE_ERROR_NOT_SUPPORTED     = TIZEN_ERROR_SYSTEM_CLASS | 0x13, /**< Not supported in this device */
-} device_error_e;
-
-/**
  * @brief Enumerations of the battery warning status
  */
 typedef enum
@@ -55,6 +44,42 @@ typedef enum
     DEVICE_BATTERY_WARN_NORMAL,    /**< The battery status is not to be careful. */
     DEVICE_BATTERY_WARN_FULL,      /**< The battery status is full. */
 } device_battery_warn_e;
+
+/**
+ * @brief Enumerations of the battery remaining time type
+ */
+typedef enum
+{
+    DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED,
+    DEVICE_BATTERY_REMAINING_TIME_TO_DISCHARGED
+} device_battery_remaining_time_type_e;
+
+/**
+ * @brief Enumerations of the battery level status
+ */
+typedef enum
+{
+    DEVICE_BATTERY_LEVEL_EMPTY = 0,      /**< The battery goes empty. Prepare for the safe termination of the application, because the device starts a shutdown process soon after entering this level. */
+    DEVICE_BATTERY_LEVEL_CRITICAL,  /**< The battery charge is at a critical state. You may have to stop using multimedia features, because they are not guaranteed to work correctly at this battery status. */
+    DEVICE_BATTERY_LEVEL_LOW,       /**< The battery has little charge left. */
+    DEVICE_BATTERY_LEVEL_HIGH,    /**< The battery status is not to be careful. */
+    DEVICE_BATTERY_LEVEL_FULL,      /**< The battery status is full. */
+} device_battery_level_e;
+
+
+/**
+ * @brief Structure of the time information system spent, measured in units of USER_HZ
+ */
+typedef struct {
+	unsigned long long total;
+	unsigned long long user;
+	unsigned long long nice;
+	unsigned long long system;
+	unsigned long long idle;
+	unsigned long long iowait;
+	unsigned long long irq;
+	unsigned long long softirq;
+} device_system_time_s;
 
 /**
  * @}
@@ -82,6 +107,15 @@ typedef void (*device_battery_cb)(int percent, void *user_data);
  *
  */
 typedef void (*device_battery_warn_cb)(device_battery_warn_e status, void *user_data);
+
+/**
+ * @brief Called when an battery level changed
+ *
+ * @param[in] status       The remaining battery level (empty[0~1] critical[2~5] low[6~15] high[16~94] full[95~100])
+ * @param[in] user_data     The user data passed from the callback registration function
+ *
+ */
+typedef void (*device_battery_level_cb)(device_battery_level_e status, void *user_data);
 
 /**
  * @brief Gets the battery warning status.
@@ -142,25 +176,6 @@ int device_battery_warning_unset_cb(void);
 int device_battery_get_percent(int *percent);
 
 /**
- * @brief Gets the battery detail charge as a per ten thousand.
- * @details It return integer value from 0 to 10000 that indicates remaining battery charge as a per ten thousand of the maximum level.
- * @remarks this function return #DEVICE_ERROR_NOT_SUPPORTED when device can not be supported detail battery information.
- *
- * @param[out] detail   The remaining battery charge as a per ten thousand. (0 ~ 10000)
- *
- * @return 0 on success, otherwise a negative error value.
- * @retval #DEVICE_ERROR_NONE				Successful
- * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
- * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
- * @retval #DEVICE_ERROR_NOT_SUPPORTED      Not supported device
- *
- * @see device_battery_is_full()
- * @see device_battery_get_percent()
- * @see device_battery_set_cb()
- */
-int device_battery_get_detail(int *detail);
-
-/**
  * @brief Get charging state
  *
  * @param[out] charging The battery charging state.
@@ -214,6 +229,35 @@ int device_battery_unset_cb(void);
 int device_battery_is_full(bool *full);
 
 /**
+ * @brief Gets the battery level status.
+ *
+ * @param[out] status The battery level status.
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ *
+ * @see device_battery_level_e
+ * @see device_battery_level_set_cb()
+ */
+int device_battery_get_level_status(device_battery_level_e *status);
+
+/**
+ * @brief Set/Unset callback to be observing battery level.
+ *
+ * @param[in] callback      The callback function to set, if you input NULL, observing is disabled
+ * @param[in] user_data     The user data to be passed to the callback function
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE			Successful
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ *
+ * @see device_battery_level_e
+ * @see device_battery_get_level_status()
+ */
+int device_battery_level_set_cb(device_battery_level_cb callback, void* user_data);
+
+/**
  * @brief Gets the number of display devices.
  *
  * @return The number of display devices that the device provides.
@@ -223,6 +267,8 @@ int device_battery_is_full(bool *full);
  * @see	device_get_brightness()
  * @see device_set_brightness()
  * @see device_get_max_brightness()
+ * @see device_set_brightness_from_settings()
+ * @see device_set_brightness_to_settings()
  */
 int device_get_display_numbers(int* device_number);
 
@@ -243,6 +289,7 @@ int device_get_display_numbers(int* device_number);
  * @see device_set_brightness()
  * @see device_get_max_brightness()
  * @see device_set_brightness_from_settings()
+ * @see device_set_brightness_to_settings()
  */
 int device_get_brightness(int display_index, int *brightness);
 
@@ -264,6 +311,7 @@ int device_get_brightness(int display_index, int *brightness);
  * @see device_get_max_brightness()
  * @see device_get_brightness()
  * @see device_set_brightness_from_settings()
+ * @see device_set_brightness_to_settings()
  */
 int device_set_brightness(int display_index, int brightness);
 
@@ -284,11 +332,12 @@ int device_set_brightness(int display_index, int brightness);
  * @see device_set_brightness()
  * @see device_get_brightness()
  * @see device_set_brightness_from_settings()
+ * @see device_set_brightness_to_settings()
  */
 int device_get_max_brightness(int display_index, int *max_brightness);
 
 /**
- * @brief Sets the display brightness value that registed in settings.
+ * @brief Sets the display brightness value from registed in settings.
  *
  * @details
  * This function set display brightness to condition in the settings.
@@ -307,8 +356,35 @@ int device_get_max_brightness(int display_index, int *max_brightness);
  * @see device_get_max_brightness()
  * @see device_set_brightness()
  * @see device_get_brightness()
+ * @see device_set_brightness_to_settings()
  */
 int device_set_brightness_from_settings(int display_index);
+
+/**
+ * @brief Sets the display brightness value to specific display and set to variable in settings.
+ *
+ * @details
+ * This function set given brightness value to given index of display.
+ * And also brightness variable in settings will be changed to given brightness value too.
+ *
+ * @param[in] display_index	The index of the display, it be greater than or equal to 0 and less than \n
+ *                          the number of displays returned by device_get_display_numbers().\n
+ *                          The index zero is always assigned to the main display.
+ * @param[in] brightness	The new brightness value to set \n
+ *							The maximum value can be represented by device_get_max_brightness()
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ *
+ * @see device_get_display_numbers()
+ * @see device_get_max_brightness()
+ * @see device_set_brightness()
+ * @see device_get_brightness()
+ * @see device_set_brightness_from_settings()
+ */
+int device_set_brightness_to_settings(int display_index, int brightness);
 
 /**
  * @brief Get brightness value of LED that placed to camera flash.
@@ -350,6 +426,95 @@ int device_flash_set_brightness(int brightness);
  * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
  */
 int device_flash_get_max_brightness(int *max_brightness);
+
+/**
+ * @brief Get total amount of physical RAM, in kilobytes
+ *
+ * @remark
+ *
+ * @param[out] total_mem total amount of physical RAM
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_memory_get_total(unsigned int *total_mem);
+
+/**
+ * @brief Get available amount of physical RAM, in kilobytes
+ *
+ * @remark
+ * Available amount is defined by following formula currently.
+ * available mem = MemFree+Buffers+Cached+SwapCached-Shmem
+ *
+ * @param[out] avail_mem available amount of physical RAM
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_memory_get_available(unsigned int *avail_mem);
+
+/**
+ * @brief Get time information the CPU has spent performing work.
+ *
+ * @remark
+ * Time units are in USER_HZ (typically hundredths of a second).
+ *
+ * @param[out] time structure of time information the CPU has spent
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_cpu_get_system_time(device_system_time_s *time);
+
+/**
+ * @brief Get all of CPU count
+ *
+ * @remark
+ *
+ * @param[out] cpu_cnt total count of CPU
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_cpu_get_count(int *cpu_cnt);
+
+/**
+ * @brief Get currently frequency of CPU
+ *
+ * @remark
+ *
+ * @param[in]  cpu the index of CPU which want to know
+ * @param[out] cur_freq currently frequency value of CPU
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_cpu_get_current_freq(int cpu, unsigned int *cur_freq);
+
+/**
+ * @brief Get max frequency of CPU
+ *
+ * @remark
+ *
+ * @param[in]  cpu the index of CPU which want to know
+ * @param[out] max_freq max frequency value of CPU
+ *
+ * @return 0 on success, otherwise a negative error value.
+ * @retval #DEVICE_ERROR_NONE				Successful
+ * @retval #DEVICE_ERROR_INVALID_PARAMETER	Invalid parameter
+ * @retval #DEVICE_ERROR_OPERATION_FAILED	Operation failed
+ */
+int device_cpu_get_max_freq(int cpu, unsigned int *max_freq);
 
 /**
  * @}

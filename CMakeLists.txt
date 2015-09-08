@@ -10,7 +10,7 @@ SET(PREFIX ${CMAKE_INSTALL_PREFIX})
 SET(INC_DIR include)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
-SET(dependents "devman dlog vconf capi-base-common")
+SET(dependents "deviced dlog vconf dbus-1 dbus-glib-1 capi-base-common capi-system-info")
 SET(pc_dependents "capi-base-common")
 
 INCLUDE(FindPkgConfig)
@@ -27,7 +27,7 @@ IF("${ARCH}" STREQUAL "arm")
 ENDIF("${ARCH}" STREQUAL "arm")
 
 ADD_DEFINITIONS("-DPREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
-ADD_DEFINITIONS("-DTIZEN_DEBUG")
+ADD_DEFINITIONS("-DFEATURE_DEVICE_DLOG")
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -Wl,--rpath=/usr/lib")
 
@@ -44,10 +44,13 @@ SET_TARGET_PROPERTIES(${fw_name}
 )
 
 INSTALL(TARGETS ${fw_name} DESTINATION lib)
+INSTALL(FILES ${INC_DIR}/device.h ${INC_DIR}/device-error.h
+		DESTINATION include/system)
 INSTALL(
-        DIRECTORY ${INC_DIR}/ DESTINATION include/system
+        DIRECTORY ${INC_DIR}/ DESTINATION include/device
         FILES_MATCHING
-        PATTERN "*_private.h" EXCLUDE
+        PATTERN "*_doc.h" EXCLUDE
+		PATTERN "device.h" EXCLUDE
         PATTERN "${INC_DIR}/*.h"
         )
 

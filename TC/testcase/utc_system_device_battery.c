@@ -18,11 +18,20 @@
 #include <tet_api.h>
 #include <device.h>
 
+#define API_NAME_DEVICE_BATTERY_GET_WARNING_STATUS "device_battery_get_warning_status"
+#define API_NAME_DEVICE_BATTERY_WARNING_SET_CB "device_battery_warning_set_cb"
+#define API_NAME_DEVICE_BATTERY_WARNING_UNSET_CB "device_battery_warning_unset_cb"
 #define API_NAME_DEVICE_BATTERY_GET_PERCENT "device_battery_get_percent"
-#define API_NAME_DEVICE_BATTERY_IS_FULL "device_battery_is_full"
+#define API_NAME_DEVICE_BATTERY_GET_DETAIL "device_battery_get_detail"
 #define API_NAME_DEVICE_BATTERY_IS_CHARGING "device_battery_is_charging"
 #define API_NAME_DEVICE_BATTERY_SET_CB "device_battery_set_cb"
 #define API_NAME_DEVICE_BATTERY_UNSET_CB "device_battery_unset_cb"
+#define API_NAME_DEVICE_BATTERY_IS_FULL "device_battery_is_full"
+#define API_NAME_DEVICE_BATTERY_GET_REMAINING_TIME "device_battery_get_remaining_time"
+#define API_NAME_DEVICE_BATTERY_SET_REMAINING_TIME_CHANGED_CB "device_battery_set_remaining_time_changed_cb"
+#define API_NAME_DEVICE_BATTERY_UNSET_REMAINING_TIME_CHANGED_CB "device_battery_unset_remaining_time_changed_cb"
+#define API_NAME_DEVICE_BATTERY_GET_LEVEL_STATUS "device_battery_get_level_status"
+#define API_NAME_DEVICE_BATTERY_LEVEL_SET_CB "device_battery_level_set_cb"
 
 static void startup(void);
 static void cleanup(void);
@@ -30,16 +39,35 @@ static void cleanup(void);
 void (*tet_startup)(void) = startup;
 void (*tet_cleanup)(void) = cleanup;
 
+
+static void utc_system_device_battery_get_warning_status_p(void);
+static void utc_system_device_battery_get_warning_status_n(void);
+static void utc_system_device_battery_warning_set_cb_p(void);
+static void utc_system_device_battery_warning_set_cb_n(void);
+static void utc_system_device_battery_warning_unset_cb_p(void);
 static void utc_system_device_battery_get_percent_p(void);
 static void utc_system_device_battery_get_percent_n(void);
-static void utc_system_device_battery_is_full_p(void);
-static void utc_system_device_battery_is_full_n(void);
+static void utc_system_device_battery_get_detail_p(void);
+static void utc_system_device_battery_get_detail_n(void);
 static void utc_system_device_battery_is_charging_p(void);
 static void utc_system_device_battery_is_charging_n(void);
 static void utc_system_device_battery_set_cb_p(void);
 static void utc_system_device_battery_set_cb_n(void);
 static void utc_system_device_battery_unset_cb_p(void);
-
+static void utc_system_device_battery_is_full_p(void);
+static void utc_system_device_battery_is_full_n(void);
+static void utc_system_device_battery_get_remaining_time_p(void);
+static void utc_system_device_battery_get_remaining_time_n_1(void);
+static void utc_system_device_battery_get_remaining_time_n_2(void);
+static void utc_system_device_battery_set_remaining_time_changed_cb_p(void);
+static void utc_system_device_battery_set_remaining_time_changed_cb_n_1(void);
+static void utc_system_device_battery_set_remaining_time_changed_cb_n_2(void);
+static void utc_system_device_battery_unset_remaining_time_changed_cb_p(void);
+static void utc_system_device_battery_unset_remaining_time_changed_cb_n(void);
+static void utc_system_device_battery_get_level_status_p(void);
+static void utc_system_device_battery_get_level_status_n(void);
+static void utc_system_device_battery_level_set_cb_p(void);
+static void utc_system_device_battery_level_set_cb_n(void);
 
 enum {
 	POSITIVE_TC_IDX = 0x01,
@@ -47,15 +75,34 @@ enum {
 };
 
 struct tet_testlist tet_testlist[] = {
+	{ utc_system_device_battery_get_warning_status_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_get_warning_status_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_warning_set_cb_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_warning_set_cb_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_warning_unset_cb_p, POSITIVE_TC_IDX },
 	{ utc_system_device_battery_get_percent_p, POSITIVE_TC_IDX },
 	{ utc_system_device_battery_get_percent_n, NEGATIVE_TC_IDX },
-	{ utc_system_device_battery_is_full_p, POSITIVE_TC_IDX },
-	{ utc_system_device_battery_is_full_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_get_detail_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_get_detail_n, NEGATIVE_TC_IDX },
 	{ utc_system_device_battery_is_charging_p, POSITIVE_TC_IDX },
 	{ utc_system_device_battery_is_charging_n, NEGATIVE_TC_IDX },
 	{ utc_system_device_battery_set_cb_p, POSITIVE_TC_IDX },
 	{ utc_system_device_battery_set_cb_n, NEGATIVE_TC_IDX },
 	{ utc_system_device_battery_unset_cb_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_is_full_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_is_full_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_get_remaining_time_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_get_remaining_time_n_1, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_get_remaining_time_n_2, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_set_remaining_time_changed_cb_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_set_remaining_time_changed_cb_n_1, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_set_remaining_time_changed_cb_n_2, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_unset_remaining_time_changed_cb_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_unset_remaining_time_changed_cb_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_get_level_status_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_get_level_status_n, NEGATIVE_TC_IDX },
+	{ utc_system_device_battery_level_set_cb_p, POSITIVE_TC_IDX },
+	{ utc_system_device_battery_level_set_cb_n, NEGATIVE_TC_IDX },
 	{ NULL, 0},
 };
 
@@ -70,15 +117,76 @@ static void cleanup(void)
 }
 
 /**
+ * @brief Positive test case of device_battery_get_warning_status()
+ */
+static void utc_system_device_battery_get_warning_status_p(void)
+{
+	device_battery_warn_e status = 0;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_warning_status(&status);
+
+	dts_check_eq(API_NAME_DEVICE_BATTERY_GET_WARNING_STATUS, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_get_warning_status()
+ */
+static void utc_system_device_battery_get_warning_status_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_warning_status(NULL);
+
+	dts_check_ne(API_NAME_DEVICE_BATTERY_GET_PERCENT, error, DEVICE_ERROR_NONE);
+}
+
+static void warning_set_cb(device_battery_warn_e status, void *user_data)
+{
+
+}
+
+/**
+ * @brief Positive test case of device_battery_warning_set_cb()
+ */
+static void utc_system_device_battery_warning_set_cb_p(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_warning_set_cb(warning_set_cb, NULL);
+
+	dts_check_eq(API_NAME_DEVICE_BATTERY_WARNING_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_warning_set_cb()
+ */
+static void utc_system_device_battery_warning_set_cb_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_warning_set_cb(NULL, NULL);
+
+	dts_check_ne(API_NAME_DEVICE_BATTERY_WARNING_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_warning_unset_cb()
+ */
+static void utc_system_device_battery_warning_unset_cb_p(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_warning_unset_cb();
+
+	dts_check_eq(API_NAME_DEVICE_BATTERY_WARNING_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
  * @brief Positive test case of device_battery_get_percent()
  */
 static void utc_system_device_battery_get_percent_p(void)
 {
-    int percent = 0;
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_get_percent(&percent);
+	int percent = 0;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_percent(&percent);
 
-    dts_check_eq(API_NAME_DEVICE_BATTERY_GET_PERCENT, error, DEVICE_ERROR_NONE);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_GET_PERCENT, error, DEVICE_ERROR_NONE);
 }
 
 /**
@@ -86,10 +194,88 @@ static void utc_system_device_battery_get_percent_p(void)
  */
 static void utc_system_device_battery_get_percent_n(void)
 {
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_get_percent(NULL);
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_percent(NULL);
 
-    dts_check_ne(API_NAME_DEVICE_BATTERY_GET_PERCENT, error, DEVICE_ERROR_NONE);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_GET_PERCENT, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_get_detail()
+ */
+static void utc_system_device_battery_get_detail_p(void)
+{
+	int detail = 0;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_detail(&detail);
+
+	dts_check_eq(API_NAME_DEVICE_BATTERY_GET_DETAIL, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_get_detail()
+ */
+static void utc_system_device_battery_get_detail_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_detail(NULL);
+
+	dts_check_ne(API_NAME_DEVICE_BATTERY_GET_DETAIL, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_is_charging()
+ */
+static void utc_system_device_battery_is_charging_p(void)
+{
+	bool charging;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_is_charging(&charging);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_IS_CHARGING, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_is_charging()
+ */
+static void utc_system_device_battery_is_charging_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_is_charging(NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_IS_CHARGING, error, DEVICE_ERROR_NONE);
+}
+
+static void battery_cb(int percent, void *user_data)
+{
+}
+
+/**
+ * @brief Positive test case of device_battery_set_cb()
+ */
+static void utc_system_device_battery_set_cb_p(void)
+{
+	int error = device_battery_set_cb(battery_cb, NULL);
+	device_battery_unset_cb();
+	dts_check_eq(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_set_cb()
+ */
+static void utc_system_device_battery_set_cb_n(void)
+{
+	int error = device_battery_set_cb(NULL, NULL);
+	device_battery_unset_cb();
+	dts_check_ne(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_unset_cb()
+ */
+static void utc_system_device_battery_unset_cb_p(void)
+{
+	device_battery_set_cb(battery_cb, NULL);
+	int error = device_battery_unset_cb();
+	dts_check_eq(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
 }
 
 /**
@@ -97,10 +283,10 @@ static void utc_system_device_battery_get_percent_n(void)
  */
 static void utc_system_device_battery_is_full_p(void)
 {
-    bool full;
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_is_full(&full);
-    dts_check_eq(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
+	bool full;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_is_full(&full);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
 }
 
 /**
@@ -108,49 +294,145 @@ static void utc_system_device_battery_is_full_p(void)
  */
 static void utc_system_device_battery_is_full_n(void)
 {
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_is_full(NULL);
-    dts_check_ne(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_is_full(NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
 }
 
-
-static void utc_system_device_battery_is_charging_p(void)
+/**
+ * @brief Positive test case of device_battery_get_remaining_time()
+ */
+static void utc_system_device_battery_get_remaining_time_p(void)
 {
-    bool charging;
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_is_charging(&charging);
-    dts_check_eq(API_NAME_DEVICE_BATTERY_IS_CHARGING, error, DEVICE_ERROR_NONE);
+	int stime = 0;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_remaining_time(DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED, &stime);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_GET_REMAINING_TIME, error, DEVICE_ERROR_NONE);
 }
 
-static void utc_system_device_battery_is_charging_n(void)
+/**
+ * @brief Negative test case of device_battery_get_remaing_time()
+ */
+static void utc_system_device_battery_get_remaining_time_n_1(void)
 {
-    bool charging;
-    int error = DEVICE_ERROR_NONE;
-    error = device_battery_is_charging(NULL);
-    dts_check_ne(API_NAME_DEVICE_BATTERY_IS_CHARGING, error, DEVICE_ERROR_NONE);
+	int stime = 0;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_remaining_time(-1, &stime);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
 }
 
-static void battery_cb(int percent, void *user_data)
+/**
+ * @brief Negative test case of device_battery_get_remaing_time()
+ */
+static void utc_system_device_battery_get_remaining_time_n_2(void)
 {
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_remaining_time(DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED, NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_IS_FULL, error, DEVICE_ERROR_NONE);
 }
 
-static void utc_system_device_battery_set_cb_p(void)
+static void remaining_time_changed_cb(int time, void *user_data)
 {
-    int error = device_battery_set_cb(battery_cb, NULL);
-    device_battery_unset_cb();
-    dts_check_eq(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
+
 }
 
-static void utc_system_device_battery_set_cb_n(void)
+/**
+ * @brief Positive test case of device_battery_set_remaining_time_changed_cb()
+ */
+static void utc_system_device_battery_set_remaining_time_changed_cb_p(void)
 {
-    int error = device_battery_set_cb(NULL, NULL);
-    device_battery_unset_cb();
-    dts_check_ne(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_set_remaining_time_changed_cb(
+			DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED,
+			remaining_time_changed_cb, NULL);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_SET_REMAINING_TIME_CHANGED_CB, error, DEVICE_ERROR_NONE);
 }
 
-static void utc_system_device_battery_unset_cb_p(void)
+/**
+ * @brief Negative test case of device_battery_set_remaing_time_changed_cb()
+ */
+static void utc_system_device_battery_set_remaining_time_changed_cb_n_1(void)
 {
-    device_battery_set_cb(battery_cb, NULL);
-    int error = device_battery_unset_cb();
-    dts_check_eq(API_NAME_DEVICE_BATTERY_SET_CB, error, DEVICE_ERROR_NONE);
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_set_remaining_time_changed_cb(
+			-1, remaining_time_changed_cb, NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_SET_REMAINING_TIME_CHANGED_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_set_remaing_time_changed_cb()
+ */
+static void utc_system_device_battery_set_remaining_time_changed_cb_n_2(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_set_remaining_time_changed_cb(
+			DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED, NULL, NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_SET_REMAINING_TIME_CHANGED_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_unset_remaining_time_changed_cb()
+ */
+static void utc_system_device_battery_unset_remaining_time_changed_cb_p(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_unset_remaining_time_changed_cb(
+			DEVICE_BATTERY_REMAINING_TIME_TO_FULLY_CHARGED);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_UNSET_REMAINING_TIME_CHANGED_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_unset_remaing_time_changed_cb()
+ */
+static void utc_system_device_battery_unset_remaining_time_changed_cb_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_unset_remaining_time_changed_cb(-1);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_UNSET_REMAINING_TIME_CHANGED_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Positive test case of device_battery_get_level_status()
+ */
+static void utc_system_device_battery_get_level_status_p(void)
+{
+	device_battery_level_e status;
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_level_status(&status);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_GET_LEVEL_STATUS, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_get_level_status()
+ */
+static void utc_system_device_battery_get_level_status_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_get_level_status(NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_GET_LEVEL_STATUS, error, DEVICE_ERROR_NONE);
+}
+
+static void level_set_cb(device_battery_level_e status, void *user_data)
+{
+
+}
+
+/**
+ * @brief Positive test case of device_battery_level_set_cb()
+ */
+static void utc_system_device_battery_level_set_cb_p(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_level_set_cb(level_set_cb, NULL);
+	dts_check_eq(API_NAME_DEVICE_BATTERY_LEVEL_SET_CB, error, DEVICE_ERROR_NONE);
+}
+
+/**
+ * @brief Negative test case of device_battery_level_set_cb()
+ */
+static void utc_system_device_battery_level_set_cb_n(void)
+{
+	int error = DEVICE_ERROR_NONE;
+	error = device_battery_level_set_cb(NULL, NULL);
+	dts_check_ne(API_NAME_DEVICE_BATTERY_LEVEL_SET_CB, error, DEVICE_ERROR_NONE);
 }
