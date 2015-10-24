@@ -50,7 +50,7 @@ typedef enum
  *          as a percentage of the maximum level.
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
- * 
+ *
  * @remarks In order to be notified when the battery state changes, use system_info_set_changed_cb().
  *
  * @param[out] percent The remaining battery charge percentage (@c 0 ~ @c 100)

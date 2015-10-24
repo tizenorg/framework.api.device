@@ -36,7 +36,7 @@
 static bool support_front_led;
 static bool support_camera_led;
 
-static void __attribute__((constructor)) init(void)
+static void __CONSTRUCTOR__ init(void)
 {
 	int ret;
 	bool val;
@@ -112,6 +112,7 @@ int device_flash_set_brightness(int brightness)
 	snprintf(buf_noti, sizeof(buf_noti), "%d", 0);
 	arr[1] = buf_noti;
 
+	/* if camera API preempt a flash device, it will return -EBUSY error. */
 	ret = dbus_method_sync(DEVICED_BUS_NAME,
 			DEVICED_PATH_LED, DEVICED_INTERFACE_LED,
 			METHOD_SET_BRIGHTNESS, "ii", arr);

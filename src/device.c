@@ -18,57 +18,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <dd-display.h>
-#include <dd-battery.h>
 #include <vconf.h>
 
 #include "device.h"
 #include "common.h"
+#include "dbus.h"
+#include "display.h"
 
-#define CHECK_ERR(val)	\
-	do {	\
-		if (val < 0) {		\
-			if (errno == ENODEV)	\
-				return DEVICE_ERROR_NOT_SUPPORTED;	\
-			return DEVICE_ERROR_OPERATION_FAILED;	\
-		}	\
-	} while(0)
+#define METHOD_HOLD_BRIGHTNESS          "HoldBrightness"
+#define METHOD_RELEASE_BRIGHTNESS       "ReleaseBrightness"
 
 int device_get_display_numbers(int* device_number)
 {
-	if(device_number == NULL)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	*device_number = display_get_count();
-	CHECK_ERR(*device_number);
-
-	return DEVICE_ERROR_NONE;
+	return device_display_get_numbers(device_number);
 }
 
 int device_get_brightness(int disp_idx, int* value)
 {
-	int val, max_id, ret;
-
-	if(value == NULL)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	ret = device_get_display_numbers(&max_id);
-	if (ret != DEVICE_ERROR_NONE)
-		return ret;
-
-	if(disp_idx < 0 || disp_idx >= max_id)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	val = display_get_brightness();
-	CHECK_ERR(val);
-
-	*value = val;
-	return DEVICE_ERROR_NONE;
+	return device_display_get_brightness(disp_idx, value);
 }
 
 int device_set_brightness(int disp_idx, int new_value)
 {
-	int max_value, val, max_id, ret;
+	int max_value, max_id, ret;
+	char str_val[32];
+	char *arr[1];
 
 	if(new_value < 0)
 		return DEVICE_ERROR_INVALID_PARAMETER;
@@ -87,37 +61,23 @@ int device_set_brightness(int disp_idx, int new_value)
 	if(new_value > max_value)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	val = display_set_brightness(new_value);
-	CHECK_ERR(val);
+	snprintf(str_val, sizeof(str_val), "%d", new_value);
+	arr[0] = str_val;
 
-	return DEVICE_ERROR_NONE;
+	ret = dbus_method_sync(DEVICED_BUS_NAME,
+			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
+			METHOD_HOLD_BRIGHTNESS, "i", arr);
+	return errno_to_device_error(ret);
 }
 
 int device_get_max_brightness(int disp_idx, int* max_value)
 {
-	int val, max_id, ret;
-
-	if(max_value == NULL)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	ret = device_get_display_numbers(&max_id);
-	_E("max id : %d", max_id);
-	if (ret != DEVICE_ERROR_NONE)
-		return ret;
-
-	if(disp_idx < 0 || disp_idx >= max_id)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	val = display_get_max_brightness();
-	CHECK_ERR(val);
-
-	*max_value = val;
-	return DEVICE_ERROR_NONE;
+	return device_display_get_max_brightness(disp_idx, max_value);
 }
 
 int device_set_brightness_from_settings(int disp_idx)
 {
-	int max_id, val, ret;
+	int max_id, ret;
 
 	ret = device_get_display_numbers(&max_id);
 	if (ret != DEVICE_ERROR_NONE)
@@ -126,48 +86,34 @@ int device_set_brightness_from_settings(int disp_idx)
 	if(disp_idx < 0 || disp_idx >= max_id)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	val = display_release_brightness();
-	CHECK_ERR(val);
-
-	return DEVICE_ERROR_NONE;
+	ret = dbus_method_sync(DEVICED_BUS_NAME,
+			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
+			METHOD_RELEASE_BRIGHTNESS, NULL, NULL);
+	return errno_to_device_error(ret);
 }
 
 int device_set_brightness_to_settings(int disp_idx, int new_value)
 {
-	int max_value, val, max_id, ret;
-
-	if(new_value < 0)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	ret = device_get_display_numbers(&max_id);
-	if (ret != DEVICE_ERROR_NONE)
-		return ret;
-
-	if(disp_idx < 0 || disp_idx >= max_id)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	ret = device_get_max_brightness(disp_idx, &max_value);
-	if (ret != DEVICE_ERROR_NONE)
-		return ret;
-
-	if(new_value > max_value)
-		return DEVICE_ERROR_INVALID_PARAMETER;
-
-	val = display_set_brightness_with_setting(new_value);
-	CHECK_ERR(val);
-
-	return DEVICE_ERROR_NONE;
+	return device_display_set_brightness(disp_idx, new_value);
 }
 
 int device_battery_is_full(bool* full)
 {
+	device_battery_level_e status;
+	int ret;
+
 	if (full == NULL)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	int f = battery_is_full();
-	CHECK_ERR(f);
+	ret = device_battery_get_level_status(&status);
+	if (ret < 0)
+		return ret;
 
-	*full = (f == 1) ? true : false;
+	if (status == DEVICE_BATTERY_LEVEL_FULL)
+		*full = true;
+	else
+		*full = false;
+
 	return DEVICE_ERROR_NONE;
 }
 
@@ -176,7 +122,7 @@ static void* changed_callback_user_data = NULL;
 
 static void battery_changed_inside_cb(keynode_t* key, void* user_data)
 {
-	char* keyname = vconf_keynode_get_name(key);
+	const char* keyname = vconf_keynode_get_name(key);
 
 	if (keyname != NULL && changed_callback != NULL && strcmp(keyname, VCONFKEY_SYSMAN_BATTERY_CAPACITY) == 0) {
 		int percent = 0;
@@ -248,7 +194,7 @@ static void* warn_changed_callback_user_data = NULL;
 
 static void battery_warn_changed_inside_cb(keynode_t* key, void* user_data)
 {
-	char* keyname = vconf_keynode_get_name(key);
+	const char* keyname = vconf_keynode_get_name(key);
 
 	if (keyname != NULL && warn_changed_callback != NULL && strcmp(keyname, VCONFKEY_SYSMAN_BATTERY_STATUS_LOW) == 0) {
 		int bat_state = 0;

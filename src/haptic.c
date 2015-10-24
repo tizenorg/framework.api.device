@@ -54,7 +54,13 @@ int device_haptic_get_count(int *device_number)
 	ret = dbus_method_sync(DEVICED_BUS_NAME,
 			DEVICED_PATH_HAPTIC, DEVICED_INTERFACE_HAPTIC,
 			METHOD_GET_COUNT, NULL, NULL);
-	if (ret < 0)
+	/**
+	 * there is no haptic method in no vibration model.
+	 * so -ENOTSUP means that haptic count is zero.
+	 */
+	if (ret == -ENOTSUP)
+		ret = 0;
+	else if (ret < 0)
 		return errno_to_device_error(ret);
 
 	*device_number = ret;

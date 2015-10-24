@@ -38,7 +38,11 @@ extern "C" {
  *                                 CPU    Brightness \n
  *          POWER_LOCK_CPU          ON      OFF \n
  *          POWER_LOCK_DISPLAY      ON      ON(normal) \n
- *          POWER_LOCK_DISPLAY_DIM  ON      ON(dim)
+ *          POWER_LOCK_DISPLAY_DIM  ON      ON(dim) \n\n
+ *          The POWER_LOCK_DISPLAY and POWER_LOCK_DISPLAY_DIM types were deprecated in Tizen 2.4.\n
+ *          Please use below api set instead of these types.\n
+ *          int efl_util_set_window_screen_mode(Evas_Object *window, efl_util_screen_mode_e mode);\n
+ *          int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mode_e *mode);
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  *
@@ -50,8 +54,8 @@ extern "C" {
 typedef enum
 {
     POWER_LOCK_CPU,         /**< CPU lock */
-    POWER_LOCK_DISPLAY,     /**< Display normal lock */
-    POWER_LOCK_DISPLAY_DIM, /**< Display dim lock */
+    POWER_LOCK_DISPLAY,     /**< Display normal lock (Deprecated since 2.4. Use efl_util_set_window_screen_mode() instead) */
+    POWER_LOCK_DISPLAY_DIM, /**< Display dim lock (Deprecated since 2.4. Use efl_util_set_window_screen_mode() instead) */
 } power_lock_e;
 
 /**
@@ -102,11 +106,14 @@ int device_power_request_lock(power_lock_e type, int timeout_ms);
 int device_power_release_lock(power_lock_e type);
 
 /**
+ * @deprecated Deprecated Since 2.4
  * @brief Changes the current power state to the normal/dim state.
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @privlevel public
  * @privilege %http://tizen.org/privilege/display
+ *
+ * @remarks This API triggers turn on process and then updates the status when it completes. While the operation is on-going, the device_display_get_state() function returns previous display state
  *
  * @param[in] dim Set @c true to set the dim state,
  *                otherwise set @c false to not set the dim state
@@ -124,7 +131,7 @@ int device_power_release_lock(power_lock_e type);
 int device_power_wakeup(bool dim);
 
 /**
- * @internal
+ * @platform
  * @brief Reboots the device.
  * @details Will not return if the reboot is successful. \n
  *          It operates asynchronously.

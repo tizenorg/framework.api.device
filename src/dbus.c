@@ -20,216 +20,337 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <errno.h>
-#include <dbus/dbus-glib-lowlevel.h>
 
 #include "common.h"
 #include "dbus.h"
 
 #define DBUS_REPLY_TIMEOUT	(-1)
 
+/** extract from dbus/dbus-protocol.h
+ * (GDbus use the same maximum value.)
+ * Max length in bytes of a bus name, interface, or member (not object
+ * path, paths are unlimited). This is limited because lots of stuff
+ * is O(n) in this number, plus it would be obnoxious to type in a
+ * paragraph-long method name so most likely something like that would
+ * be an exploit.
+ */
+#define DBUS_MAXIMUM_NAME_LENGTH 255
+
 struct pending_call_data {
 	dbus_pending_cb func;
 	void *data;
 };
 
-static int append_variant(DBusMessageIter *iter, const char *sig, char *param[])
+struct proxy_node {
+	GDBusProxy *proxy;
+	char *dest;
+	char *path;
+	char *interface;
+	bool deleted;
+};
+
+static GList *proxy_pool;
+
+static int g_dbus_error_to_errno(int code)
 {
+	/**
+	 * if device is not supported,
+	 * deviced does not register the method call of the device.
+	 * in this case, dbus will return UNKNOWN_METHOD error.
+	 */
+	/* refer to gio/gioenums.h */
+	if (code == G_DBUS_ERROR_ACCESS_DENIED)
+		return -EACCES;
+	else if (code == G_DBUS_ERROR_UNKNOWN_METHOD)
+		return -ENOTSUP;
+	return -ECOMM;
+}
+
+static GVariant *append_g_variant(const char *sig, char *param[])
+{
+	GVariantBuilder builder;
 	char *ch;
 	int i;
-	int int_type;
-	uint64_t int64_type;
 
 	if (!sig || !param)
-		return 0;
+		return NULL;
+
+	g_variant_builder_init(&builder, G_VARIANT_TYPE_TUPLE);
 
 	for (ch = (char*)sig, i = 0; *ch != '\0'; ++i, ++ch) {
 		switch (*ch) {
 		case 'i':
-			int_type = atoi(param[i]);
-			dbus_message_iter_append_basic(iter, DBUS_TYPE_INT32, &int_type);
+			g_variant_builder_add(&builder, "i", atoi(param[i]));
 			break;
 		case 'u':
-			int_type = strtoul(param[i], NULL, 10);
-			dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT32, &int_type);
+			g_variant_builder_add(&builder, "u", strtoul(param[i], NULL, 10));
 			break;
 		case 't':
-			int64_type = atoll(param[i]);
-			dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT64, &int64_type);
+			g_variant_builder_add(&builder, "t", atoll(param[i]));
 			break;
 		case 's':
-			dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &param[i]);
+			g_variant_builder_add(&builder, "s", param[i]);
 			break;
 		default:
-			return -EINVAL;
+			return NULL;
 		}
 	}
 
-	return 0;
+	return g_variant_builder_end(&builder);
+}
+
+static struct proxy_node *find_matched_proxy_node(const char *dest,
+		const char *path,
+		const char *interface)
+{
+	GList *elem;
+	struct proxy_node *node;
+	int plen;
+
+	if (!dest || !path || !interface)
+		return NULL;
+
+	plen = strlen(path) + 1;
+
+	/* find matched proxy object */
+	for (elem = proxy_pool; elem; elem = elem->next) {
+		node = elem->data;
+		if (!node || node->deleted)
+			continue;
+		if (!strncmp(node->dest, dest, DBUS_MAXIMUM_NAME_LENGTH) &&
+		    !strncmp(node->path, path, plen) &&
+		    !strncmp(node->interface, interface,
+			    DBUS_MAXIMUM_NAME_LENGTH))
+			return node;
+	}
+
+	return NULL;
+}
+
+static void remove_unused_proxy_node(void)
+{
+	GList *elem;
+	GList *next;
+	struct proxy_node *node;
+
+	for (elem = proxy_pool, next = g_list_next(elem); elem;
+			elem = next, next = g_list_next(elem)) {
+		node = elem->data;
+		if (!node)
+			continue;
+		if (node->deleted) {
+			proxy_pool = g_list_delete_link(proxy_pool, elem);
+			g_object_unref(node->proxy);
+			free(node->dest);
+			free(node->path);
+			free(node->interface);
+			free(node);
+		}
+	}
+}
+
+static gboolean release_proxy_node(gpointer data)
+{
+	remove_unused_proxy_node();
+	return false;
+}
+
+static void on_name_owner_notify(GObject *object,
+		GParamSpec *pspec,
+		gpointer user_data)
+{
+	struct proxy_node *node = user_data;
+
+	if (!node)
+		return;
+
+	node->deleted = true;
+
+	g_idle_add(release_proxy_node, NULL);
+}
+
+static GDBusProxy *get_proxy_from_proxy_pool(const char *dest,
+		const char *path,
+		const char *interface,
+		GError **err)
+{
+	GDBusConnection *conn;
+	GDBusProxy *proxy;
+	struct proxy_node *node;
+
+	if (!dest || !path || !interface) {
+		if (err)
+			g_set_error(err, G_IO_ERROR,
+					G_IO_ERROR_INVALID_ARGUMENT,
+					"Cannot determine destination address");
+		return NULL;
+	}
+
+	/* find matched proxy node in proxy pool */
+	node = find_matched_proxy_node(dest, path, interface);
+	if (node)
+		return node->proxy;
+
+	conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, err);
+	if (!conn)
+		return NULL;
+
+	proxy = g_dbus_proxy_new_sync(conn,
+			G_DBUS_PROXY_FLAGS_NONE,
+			NULL,      /* GDBusinterfaceinfo */
+			dest,      /* bus name */
+			path,      /* object path */
+			interface, /* interface name */
+			NULL,      /* GCancellable */
+			err);
+	if (!proxy)
+		return NULL;
+
+	node = malloc(sizeof(struct proxy_node));
+	if (!node) {
+		g_object_unref(proxy);
+		if (err)
+			g_set_error(err, G_IO_ERROR,
+					G_IO_ERROR_FAILED,
+					"Cannot allocate proxy_node memory");
+		return NULL;
+	}
+
+	node->proxy = proxy;
+	node->dest = strdup(dest);
+	node->path = strdup(path);
+	node->interface = strdup(interface);
+	node->deleted = false;
+
+	/* interest notify::g-name-owner of proxy */
+	g_signal_connect(proxy, "notify::g-name-owner",
+			G_CALLBACK(on_name_owner_notify), node);
+
+	proxy_pool = g_list_append(proxy_pool, node);
+
+	return proxy;
 }
 
 int dbus_method_sync(const char *dest, const char *path,
 		const char *interface, const char *method,
 		const char *sig, char *param[])
 {
-	DBusConnection *conn;
-	DBusMessage *msg;
-	DBusMessageIter iter;
-	DBusMessage *reply;
-	DBusError err;
-	int ret, result;
+	GDBusProxy *proxy;
+	GError *err = NULL;
+	GVariant *output;
+	int result;
 
-	conn = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
-	if (!conn) {
-		_E("dbus_bus_get error");
-		return -EPERM;
+#if !GLIB_CHECK_VERSION(2,35,0)
+	g_type_init();
+#endif
+
+	proxy = get_proxy_from_proxy_pool(dest, path, interface, &err);
+	if (!proxy) {
+		_E("fail to get proxy from proxy pool : %s-%s (%d-%s)",
+				interface, method, err->code, err->message);
+		result = g_dbus_error_to_errno(err->code);
+		g_clear_error(&err);
+		return result;
 	}
 
-	msg = dbus_message_new_method_call(dest, path, interface, method);
-	if (!msg) {
-		_E("dbus_message_new_method_call(%s:%s-%s)",
-			path, interface, method);
-		return -EBADMSG;
+	output = g_dbus_proxy_call_sync(proxy,
+			method,                       /* method name */
+			append_g_variant(sig, param), /* parameters */
+			G_DBUS_CALL_FLAGS_NONE,
+			DBUS_REPLY_TIMEOUT,           /* timeout */
+			NULL,                         /* GCancellable */
+			&err);
+	if (!output) {
+		if (err) {
+			_E("g_dbus_proxy_call_sync error : %s-%s (%d-%s)",
+					interface, method, err->code, err->message);
+			result = g_dbus_error_to_errno(err->code);
+			g_clear_error(&err);
+		} else {
+			_E("g_dbus_proxy_call_sync error : %s-%s",
+					interface, method);
+			result = -ECOMM;
+		}
+		g_object_unref(proxy);
+		return result;
 	}
 
-	dbus_message_iter_init_append(msg, &iter);
-	ret = append_variant(&iter, sig, param);
-	if (ret < 0) {
-		_E("append_variant error(%d) %s %s:%s-%s",
-			ret, dest, path, interface, method);
-		dbus_message_unref(msg);
-		return ret;
-	}
+	/* get output value */
+	g_variant_get(output, "(i)", &result);
 
-	dbus_error_init(&err);
-
-	reply = dbus_connection_send_with_reply_and_block(conn, msg, DBUS_REPLY_TIMEOUT, &err);
-	dbus_message_unref(msg);
-	if (!reply) {
-		_E("dbus_connection_send error(%s:%s) %s %s:%s-%s",
-			err.name, err.message, dest, path, interface, method);
-		dbus_error_free(&err);
-		return -ECOMM;
-	}
-
-	ret = dbus_message_get_args(reply, &err, DBUS_TYPE_INT32, &result, DBUS_TYPE_INVALID);
-	dbus_message_unref(reply);
-	if (!ret) {
-		_E("no message : [%s:%s] %s %s:%s-%s",
-			err.name, err.message, dest, path, interface, method);
-		dbus_error_free(&err);
-		return -ENOMSG;
-	}
+	g_variant_unref(output);
 
 	return result;
 }
 
-static void cb_pending(DBusPendingCall *pending, void *user_data)
+static void cb_pending(GDBusProxy *proxy,
+		GAsyncResult *res,
+		gpointer user_data)
 {
-	DBusMessage *msg;
-	DBusError err;
 	struct pending_call_data *data = user_data;
-	int ret;
+	GError *err = NULL;
+	GVariant *output;
 
-	ret = dbus_pending_call_get_completed(pending);
-	if (!ret) {
-		_I("dbus_pending_call_get_completed() fail");
-		dbus_pending_call_unref(pending);
-		return;
-	}
+	output = g_dbus_proxy_call_finish(proxy,
+			res, /* GAsyncResult */
+			&err);
+	if (!output)
+		_E("g_dbus_proxy_call_finish error : %d-%s",
+				err->code, err->message);
 
-	dbus_error_init(&err);
-	msg = dbus_pending_call_steal_reply(pending);
-	if (!msg) {
-		_E("no message : [%s:%s]", err.name, err.message);
+	if (data && data->func)
+		data->func(data->data, output, err);
 
-		if (data->func) {
-			dbus_set_error(&err, "org.tizen.system.deviced.NoReply",
-					"There was no reply to this method call");
-			data->func(data->data, NULL, &err);
-			dbus_error_free(&err);
-		}
-		return;
-	}
-
-	ret = dbus_set_error_from_message(&err, msg);
-	if (ret) {
-		_E("error msg : [%s:%s]", err.name, err.message);
-
-		if (data->func)
-			data->func(data->data, NULL, &err);
-		dbus_error_free(&err);
-	} else {
-		if (data->func)
-			data->func(data->data, msg, &err);
-	}
-
-	dbus_message_unref(msg);
-	dbus_pending_call_unref(pending);
+	if (err)
+		g_clear_error(&err);
+	if (output)
+		g_variant_unref(output);
+	free(data);
 }
 
 int dbus_method_async_with_reply(const char *dest, const char *path,
 		const char *interface, const char *method,
-		const char *sig, char *param[], dbus_pending_cb cb, int timeout, void *data)
+		const char *sig, char *param[],
+		dbus_pending_cb cb, int timeout, void *data)
 {
-	DBusConnection *conn;
-	DBusMessage *msg;
-	DBusMessageIter iter;
-	DBusPendingCall *pending = NULL;
+	GDBusProxy *proxy;
+	GError *err = NULL;
 	struct pending_call_data *pdata;
-	int ret;
+	int result;
 
-	conn = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
-	if (!conn) {
-		_E("dbus_bus_get error");
-		return -EPERM;
+#if !GLIB_CHECK_VERSION(2,35,0)
+	g_type_init();
+#endif
+
+	proxy = get_proxy_from_proxy_pool(dest, path, interface, &err);
+	if (!proxy) {
+		_E("fail to get proxy from proxy pool : %s-%s (%d-%s)",
+				interface, method, err->code, err->message);
+		result = g_dbus_error_to_errno(err->code);
+		g_clear_error(&err);
+		return result;
 	}
 
-	/* this function should be invoked to receive dbus messages
-	 * does nothing if it's already been done */
-	dbus_connection_setup_with_g_main(conn, NULL);
-
-	msg = dbus_message_new_method_call(dest, path, interface, method);
-	if (!msg) {
-		_E("dbus_message_new_method_call(%s:%s-%s)",
-			path, interface, method);
-		return -EBADMSG;
+	pdata = malloc(sizeof(struct pending_call_data));
+	if (!pdata) {
+		_E("malloc error : %s-%s",
+				interface, method);
+		return -ENOMEM;
 	}
 
-	dbus_message_iter_init_append(msg, &iter);
-	ret = append_variant(&iter, sig, param);
-	if (ret < 0) {
-		_E("append_variant error(%d)%s %s:%s-%s",
-			ret, dest, path, interface, method);
-		dbus_message_unref(msg);
-		return ret;
-	}
+	pdata->func = cb;
+	pdata->data = data;
 
-	ret = dbus_connection_send_with_reply(conn, msg, &pending, timeout);
-	if (!ret) {
-		dbus_message_unref(msg);
-		_E("dbus_connection_send error(%s %s:%s-%s)",
-			dest, path, interface, method);
-		return -ECOMM;
-	}
-
-	dbus_message_unref(msg);
-
-	if (cb && pending) {
-		pdata = malloc(sizeof(struct pending_call_data));
-		if (!pdata)
-			return -ENOMEM;
-
-		pdata->func = cb;
-		pdata->data = data;
-
-		ret = dbus_pending_call_set_notify(pending, cb_pending, pdata, free);
-		if (!ret) {
-			free(pdata);
-			dbus_pending_call_cancel(pending);
-			return -ECOMM;
-		}
-	}
+	g_dbus_proxy_call(proxy,
+			method,                          /* method name */
+			append_g_variant(sig, param),    /* parameters */
+			G_DBUS_CALL_FLAGS_NONE,
+			DBUS_REPLY_TIMEOUT,              /* timeout */
+			NULL,                            /* GCancellable */
+			(GAsyncReadyCallback)cb_pending, /* GAsyncReadyCallback */
+			pdata);                          /* user data */
 
 	return 0;
 }

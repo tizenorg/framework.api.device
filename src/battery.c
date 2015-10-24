@@ -37,7 +37,10 @@ int device_battery_get_percent(int *percent)
 	ret = dbus_method_sync(DEVICED_BUS_NAME,
 			DEVICED_PATH_BATTERY, DEVICED_INTERFACE_BATTERY,
 			METHOD_GET_PERCENT, NULL, NULL);
-	if (ret < 0)
+	/* regard not suppoted as disconnected */
+	if (ret == -ENOTSUP)
+		ret = 0;
+	else if (ret < 0)
 		return errno_to_device_error(ret);
 
 	*percent = ret;
@@ -52,7 +55,10 @@ int device_battery_is_charging(bool *charging)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
 	ret = vconf_get_int(VCONFKEY_SYSMAN_BATTERY_CHARGE_NOW, &val);
-	if (ret < 0 || val < 0 || val > 1)
+	/* regard not supported as disconnected */
+	if (val == -ENOTSUP)
+		val = 0;
+	else if (ret < 0 || val < 0 || val > 1)
 		return DEVICE_ERROR_OPERATION_FAILED;
 
 	*charging = val;
@@ -80,6 +86,9 @@ int device_battery_get_level_status(device_battery_level_e *status)
 		*status = DEVICE_BATTERY_LEVEL_HIGH;
 	else if (val == VCONFKEY_SYSMAN_BAT_LEVEL_FULL)
 		*status = DEVICE_BATTERY_LEVEL_FULL;
+	/* regard not supported as disconnected */
+	else if (val == -ENOTSUP)
+		*status = DEVICE_BATTERY_LEVEL_EMPTY;
 	else
 		return DEVICE_ERROR_OPERATION_FAILED;
 

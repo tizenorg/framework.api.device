@@ -42,6 +42,7 @@ typedef enum
 	DEVICE_ERROR_INVALID_PARAMETER   = TIZEN_ERROR_INVALID_PARAMETER,   /**< Invalid parameter */
 	DEVICE_ERROR_ALREADY_IN_PROGRESS = TIZEN_ERROR_ALREADY_IN_PROGRESS, /**< Operation already in progress */
 	DEVICE_ERROR_NOT_SUPPORTED       = TIZEN_ERROR_NOT_SUPPORTED,       /**< Not supported in this device */
+	DEVICE_ERROR_RESOURCE_BUSY       = TIZEN_ERROR_RESOURCE_BUSY,       /**< Device or resource busy */
 	DEVICE_ERROR_NOT_INITIALIZED     = TIZEN_ERROR_DEVICE | 0x13,       /**< Not initialized */
 } device_error_e;
 

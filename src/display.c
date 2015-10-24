@@ -40,10 +40,18 @@ struct display {
 
 static int alloc_display(void)
 {
+	int i;
+
+	if (display_cnt < 0)
+		return -ENODEV;
+
 	display_arr = malloc(sizeof(struct display) * display_cnt);
 	if (!display_arr)
 		return -ENOMEM;
-	memset(display_arr, -1, sizeof(struct display));
+
+	for (i = 0; i < display_cnt; ++i)
+		display_arr[i].max = -1;
+
 	return 0;
 }
 
@@ -198,23 +206,15 @@ int device_display_change_state(display_state_e state)
 	if (state < DISPLAY_STATE_NORMAL || state > DISPLAY_STATE_SCREEN_OFF)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	arr[0] = "";
-
-	ret = dbus_method_sync(DEVICED_BUS_NAME,
-			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
-			METHOD_CHANGE_STATE, "s", arr);
-	if (ret == -ECOMM || ret == -EACCES || ret == -EPERM)
-		return DEVICE_ERROR_PERMISSION_DENIED;
-
 	str = get_state_str(state);
 	if (!str)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
 	arr[0] = str;
 
-	ret = dbus_method_async_with_reply(DEVICED_BUS_NAME,
+	ret = dbus_method_sync(DEVICED_BUS_NAME,
 			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
-			METHOD_CHANGE_STATE, "s", arr, NULL, -1, NULL);
+			METHOD_CHANGE_STATE, "s", arr);
 	if (ret < 0)
 		return errno_to_device_error(ret);
 

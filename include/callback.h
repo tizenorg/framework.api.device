@@ -41,6 +41,7 @@ typedef enum
     DEVICE_CALLBACK_BATTERY_LEVEL,       /**< Called when a battery level is changed */
     DEVICE_CALLBACK_BATTERY_CHARGING,    /**< Called when battery charging state is changed */
     DEVICE_CALLBACK_DISPLAY_STATE,       /**< Called when a display state is changed */
+    DEVICE_CALLBACK_FLASH_BRIGHTNESS,    /**< Called when a flash brightness is changed (Since Tizen 2.4) */
     DEVICE_CALLBACK_MAX
 } device_callback_e;
 
@@ -52,9 +53,12 @@ typedef enum
  *          DEVICE_CALLBACK_BATTERY_CAPACITY        int \n
  *          DEVICE_CALLBACK_BATTERY_LEVEL           int \n
  *          DEVICE_CALLBACK_BATTERY_CHARGING        bool \n
- *          DEVICE_CALLBACK_DISPLAY_STATE           int
+ *          DEVICE_CALLBACK_DISPLAY_STATE           int \n
+ *          DEVICE_CALLBACK_FLASH_BRIGHTNESS        int
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
+ *
+ * @remarks DEVICE_CALLBACK_FLASH_BRIGHTNESS callback invoked when user set flash brightness by using device_flash_set_brightness(). It does not work by camera flash operation. To register DEVICE_CALLBACK_FLASH_BRIGHTNESS callback, you need to declare the LED privilege (%http://tizen.org/privilege/led).
  *
  * @param[out] type          The device type to monitor
  * @param[out] value         The changed value \n

@@ -20,7 +20,7 @@
 #ifndef __DBUS_H__
 #define __DBUS_H__
 
-#include <dbus/dbus.h>
+#include <gio/gio.h>
 
 #define DEVICED_BUS_NAME		"org.tizen.system.deviced"
 #define DEVICED_OBJECT_PATH		"/Org/Tizen/System/DeviceD"
@@ -50,7 +50,11 @@ int dbus_method_sync(const char *dest, const char *path,
 		const char *interface, const char *method,
 		const char *sig, char *param[]);
 
-typedef void (*dbus_pending_cb)(void *data, DBusMessage *msg, DBusError *err);
+/**
+ * If result is NULL, err is set.
+ * Do not invoke g_variant_unref() with result.
+ */
+typedef void (*dbus_pending_cb)(void *data, GVariant *result, GError *err);
 
 int dbus_method_async_with_reply(const char *dest, const char *path,
 		const char *interface, const char *method,

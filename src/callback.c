@@ -20,6 +20,7 @@
 #include <string.h>
 #include <errno.h>
 #include <vconf.h>
+#include <gio/gio.h>
 
 #include "callback.h"
 #include "battery.h"
@@ -28,12 +29,15 @@
 #include "dbus.h"
 #include "list.h"
 
+#define SIGNAL_FLASH_STATE  "ChangeFlashState"
+
 struct device_cb_info {
 	device_changed_cb cb;
 	void *data;
 };
 
 static dd_list *device_cb_list[DEVICE_CALLBACK_MAX];
+static int flash_sigid;
 
 static void battery_capacity_cb(keynode_t *key, void *data)
 {
@@ -116,6 +120,100 @@ static void display_changed_cb(keynode_t *key, void *data)
 		cb_info->cb(type, (void*)state, cb_info->data);
 }
 
+static void flash_state_cb(GDBusConnection *conn,
+		const gchar *sender,
+		const gchar *object,
+		const gchar *interface,
+		const gchar *signal,
+		GVariant *parameters,
+		gpointer user_data)
+{
+	static int type = DEVICE_CALLBACK_FLASH_BRIGHTNESS;
+	struct device_cb_info *cb_info;
+	dd_list *elem;
+	int val;
+
+	if (strncmp(signal, SIGNAL_FLASH_STATE,
+				sizeof(SIGNAL_FLASH_STATE)) != 0) {
+		_E("wrong parameter : signal(%s)", signal);
+		return;
+	}
+
+	/* get camera value */
+	g_variant_get(parameters, "(i)", &val);
+	_D("%s - %d", signal, val);
+
+	/* invoke the each callback with value */
+	DD_LIST_FOREACH(device_cb_list[type], elem, cb_info)
+		cb_info->cb(type, (void*)val, cb_info->data);
+}
+
+static int register_signal(const char *bus_name,
+		const char *object_path,
+		const char *interface_name,
+		const char *signal,
+		GDBusSignalCallback callback,
+		int *sig_id)
+{
+	GError *err = NULL;
+	GDBusConnection *conn;
+	int id;
+
+#if !GLIB_CHECK_VERSION(2,35,0)
+	g_type_init();
+#endif
+
+	conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &err);
+	if (!conn) {
+		_E("fail to get dbus connection : %s", err->message);
+		g_clear_error(&err);
+		return -EPERM;
+	}
+
+	/* subscribe signal */
+	id = g_dbus_connection_signal_subscribe(conn,
+			bus_name,
+			interface_name,
+			signal,		/* null to match on all signals */
+			object_path,
+			NULL,		/* null to match on all kinds of arguments */
+			G_DBUS_SIGNAL_FLAGS_NONE,
+			callback,
+			NULL,
+			NULL);
+	if (id == 0) {
+		_E("fail to connect %s signal", signal);
+		return -EPERM;
+	}
+
+	if (sig_id)
+		*sig_id = id;
+
+	return 0;
+}
+
+static int unregister_signal(int *sig_id)
+{
+	GError *err = NULL;
+	GDBusConnection *conn;
+
+	if (!sig_id)
+		return -EINVAL;
+
+	conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &err);
+	if (!conn) {
+		_E("fail to get dbus connection : %s", err->message);
+		g_clear_error(&err);
+		return -EPERM;
+	}
+
+	/* unsubscribe signal */
+	g_dbus_connection_signal_unsubscribe(conn, *sig_id);
+	*sig_id = 0;
+
+	return 0;
+}
+
 static int register_request(device_callback_e type)
 {
 	switch (type) {
@@ -131,6 +229,14 @@ static int register_request(device_callback_e type)
 	case DEVICE_CALLBACK_DISPLAY_STATE:
 		return vconf_notify_key_changed(VCONFKEY_PM_STATE,
 				display_changed_cb, NULL);
+	case DEVICE_CALLBACK_FLASH_BRIGHTNESS:
+		/* sig_id begins with 1. */
+		if (flash_sigid)
+			return -EEXIST;
+		return register_signal(DEVICED_BUS_NAME,
+				DEVICED_PATH_LED,
+				DEVICED_INTERFACE_LED,
+				SIGNAL_FLASH_STATE, flash_state_cb, &flash_sigid);
 	default:
 		break;
 	}
@@ -153,6 +259,10 @@ static int release_request(device_callback_e type)
 	case DEVICE_CALLBACK_DISPLAY_STATE:
 		return vconf_ignore_key_changed(VCONFKEY_PM_STATE,
 				display_changed_cb);
+	case DEVICE_CALLBACK_FLASH_BRIGHTNESS:
+		if (!flash_sigid)
+			return -ENOENT;
+		return unregister_signal(&flash_sigid);
 	default:
 		break;
 	}

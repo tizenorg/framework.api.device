@@ -75,23 +75,17 @@ static char *get_state_str(display_state_e state)
 	return NULL;
 }
 
-static void lock_cb(void *data, DBusMessage *msg, DBusError *unused)
+static void lock_cb(void *data, GVariant *result, GError *err)
 {
-	DBusError err;
-	int ret, val;
+	int ret;
 
-	if (!msg)
-		return;
-
-	dbus_error_init(&err);
-	ret = dbus_message_get_args(msg, &err, DBUS_TYPE_INT32, &val, DBUS_TYPE_INVALID);
-	if (!ret) {
-		_E("no message [%s:%s]", err.name, err.message);
-		dbus_error_free(&err);
+	if (!result) {
+		_E("no message : %s", err->message);
 		return;
 	}
 
-	_D("%s-%s : %d", DEVICED_INTERFACE_DISPLAY, METHOD_LOCK_STATE, val);
+	g_variant_get(result, "(i)", &ret);
+	_D("%s-%s : %d", DEVICED_INTERFACE_DISPLAY, METHOD_LOCK_STATE, ret);
 }
 
 static int lock_state(display_state_e state, unsigned int flag, int timeout_ms)
@@ -123,23 +117,17 @@ static int lock_state(display_state_e state, unsigned int flag, int timeout_ms)
 			METHOD_LOCK_STATE, "sssi", arr, lock_cb, -1, NULL);
 }
 
-static void unlock_cb(void *data, DBusMessage *msg, DBusError *unused)
+static void unlock_cb(void *data, GVariant *result, GError *err)
 {
-	DBusError err;
-	int ret, val;
+	int ret;
 
-	if (!msg)
-		return;
-
-	dbus_error_init(&err);
-	ret = dbus_message_get_args(msg, &err, DBUS_TYPE_INT32, &val, DBUS_TYPE_INVALID);
-	if (!ret) {
-		_E("no message [%s:%s]", err.name, err.message);
-		dbus_error_free(&err);
+	if (!result) {
+		_E("no message : %s", err->message);
 		return;
 	}
 
-	_D("%s-%s : %d", DEVICED_INTERFACE_DISPLAY, METHOD_UNLOCK_STATE, val);
+	g_variant_get(result, "(i)", &ret);
+	_D("%s-%s : %d", DEVICED_INTERFACE_DISPLAY, METHOD_UNLOCK_STATE, ret);
 }
 
 static int unlock_state(display_state_e state, unsigned int flag)
@@ -180,12 +168,7 @@ int device_power_request_lock(power_lock_e type, int timeout_ms)
 	else
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	if (ret == -ECOMM)
-		return DEVICE_ERROR_PERMISSION_DENIED;
-	else if (ret < 0)
-		return DEVICE_ERROR_OPERATION_FAILED;
-
-	return DEVICE_ERROR_NONE;
+	return errno_to_device_error(ret);
 }
 
 int device_power_release_lock(power_lock_e type)
@@ -201,12 +184,7 @@ int device_power_release_lock(power_lock_e type)
 	else
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	if (ret == -ECOMM)
-		return DEVICE_ERROR_PERMISSION_DENIED;
-	else if (ret < 0)
-		return DEVICE_ERROR_OPERATION_FAILED;
-
-	return DEVICE_ERROR_NONE;
+	return errno_to_device_error(ret);
 }
 
 int device_power_wakeup(bool dim)

@@ -151,8 +151,6 @@ typedef enum
  * @brief Gets the current display state.
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
- * @privlevel public
- * @privilege %http://tizen.org/privilege/display
  *
  * @param[out] state the display state
  *
@@ -170,13 +168,14 @@ typedef enum
 int device_display_get_state(display_state_e *state);
 
 /**
+ * @deprecated Deprecated Since 2.4
  * @brief Changes the display state by force.
  *
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @privlevel public
  * @privilege %http://tizen.org/privilege/display
  *
- * @remarks Display state may not be changed immediately
+ * @remarks This API triggers display change process and then updates the status when it completes. While the operation is on-going, the device_display_get_state() function returns previous display state
  *
  * @param[in] state the display state
  *

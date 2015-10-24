@@ -77,6 +77,8 @@ int device_flash_get_brightness(int *brightness);
  * @privlevel public
  * @privilege %http://tizen.org/privilege/led
  *
+ * @remarks Since 2.4, this API check camera flash status whether camera API preempted flash or not, so it could be failed if flash was preempted by camera API. In this case, API will return #DEVICE_ERROR_RESOURCE_BUSY error.
+ *
  * @param[in] brightness The brightness value of LED (@c 0 ~ MAX)
  *
  * @return @c 0 on success,
@@ -87,6 +89,7 @@ int device_flash_get_brightness(int *brightness);
  * @retval #DEVICE_ERROR_PERMISSION_DENIED  Permission denied
  * @retval #DEVICE_ERROR_OPERATION_FAILED   Operation failed
  * @retval #DEVICE_ERROR_NOT_SUPPORTED      Not supported device
+ * @retval #DEVICE_ERROR_RESOURCE_BUSY      Device or resource busy
  */
 int device_flash_set_brightness(int brightness);
 
