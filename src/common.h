@@ -37,7 +37,7 @@
 
 static inline int errno_to_device_error(int err)
 {
-	if (err == -ECOMM)
+	if (err == -ECOMM || err == -EACCES || err == -EPERM)
 		return DEVICE_ERROR_PERMISSION_DENIED;
 	else if (err == -ENODEV || err == -ENOENT)
 		return DEVICE_ERROR_NOT_SUPPORTED;

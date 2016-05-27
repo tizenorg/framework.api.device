@@ -77,8 +77,11 @@ int device_display_get_max_brightness(int display_index, int *max_brightness)
 	if (!max_brightness)
 		return DEVICE_ERROR_INVALID_PARAMETER;
 
-	if (display_cnt < 0)
-		device_display_get_numbers(&display_cnt);
+	if (display_cnt < 0) {
+		ret = device_display_get_numbers(&display_cnt);
+		if (ret < 0)
+			return errno_to_device_error(ret);
+	}
 
 	if (display_index < 0 || display_index >= display_cnt)
 		return DEVICE_ERROR_INVALID_PARAMETER;
