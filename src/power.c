@@ -92,6 +92,7 @@ static int lock_state(display_state_e state, unsigned int flag, int timeout_ms)
 {
 	char *arr[4];
 	char str_timeout[32];
+	int ret;
 
 	arr[0] = get_state_str(state);
 	if (!arr[0])
@@ -108,6 +109,14 @@ static int lock_state(display_state_e state, unsigned int flag, int timeout_ms)
 		arr[2] = STR_STANDBYMODE;
 	else
 		arr[2] = STR_NULL;
+
+	snprintf(str_timeout, sizeof(str_timeout), "%d", -1);
+	arr[3] = str_timeout;
+	ret = dbus_method_sync(DEVICED_BUS_NAME,
+			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
+			METHOD_LOCK_STATE, "sssi", arr);
+	if (ret == -EACCES || ret == -ECOMM || ret == -EPERM)
+		return -EACCES;
 
 	snprintf(str_timeout, sizeof(str_timeout), "%d", timeout_ms);
 	arr[3] = str_timeout;
@@ -133,6 +142,15 @@ static void unlock_cb(void *data, GVariant *result, GError *err)
 static int unlock_state(display_state_e state, unsigned int flag)
 {
 	char *arr[2];
+	int ret;
+
+	arr[0] = "";
+	arr[1] = "";
+	ret = dbus_method_sync(DEVICED_BUS_NAME,
+			DEVICED_PATH_DISPLAY, DEVICED_INTERFACE_DISPLAY,
+			METHOD_UNLOCK_STATE, "ss", arr);
+	if (ret == -EACCES || ret == -ECOMM || ret == -EPERM)
+		return -EACCES;
 
 	arr[0] = get_state_str(state);
 	if (!arr[0])
